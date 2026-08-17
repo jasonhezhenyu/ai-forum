@@ -41,8 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 # database (本地 SQLite，仅开发用；生产走 Turso 云库)
-/forum.db
-/forum.db-*
+/forum.db*
 
 # 本地上传的文件（serverless 部署需改为对象存储）
 /public/avatars/
