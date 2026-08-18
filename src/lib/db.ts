@@ -87,16 +87,6 @@ const CREATE_TABLES = [
   )`,
 ];
 
-const MIGRATIONS = [
-  `ALTER TABLE users ADD COLUMN nickname TEXT DEFAULT ''`,
-  `ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT ''`,
-  `ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'`,
-  `ALTER TABLE posts ADD COLUMN is_pinned INTEGER DEFAULT 0`,
-  `ALTER TABLE posts ADD COLUMN is_featured INTEGER DEFAULT 0`,
-  `ALTER TABLE posts ADD COLUMN view_count INTEGER DEFAULT 0`,
-  `ALTER TABLE comments ADD COLUMN parent_id INTEGER DEFAULT NULL`,
-];
-
 const DEFAULT_CATEGORIES: [string, string][] = [
   ['前沿资讯', '品质中台及 AI Agent 领域最新动态和资讯'],
   ['技术交流', '技术方案、架构设计和实现细节'],
@@ -110,10 +100,6 @@ async function doEnsureSchema() {
   const c = getClient();
   // 批量建表（合并成一次请求，避免冷启动超时）
   await c.batch(CREATE_TABLES, 'write');
-  // 兼容旧库的列迁移（逐条，失败说明列已存在）
-  for (const sql of MIGRATIONS) {
-    try { await c.execute(sql); } catch { /* 列已存在 */ }
-  }
   // 批量插入默认分类
   await c.batch(
     DEFAULT_CATEGORIES.map(([name, desc]) => ({
