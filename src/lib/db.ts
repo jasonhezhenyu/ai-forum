@@ -108,18 +108,20 @@ const DEFAULT_CATEGORIES: [string, string][] = [
 
 async function doEnsureSchema() {
   const c = getClient();
-  for (const sql of CREATE_TABLES) {
-    await c.execute(sql);
-  }
+  // 批量建表（合并成一次请求，避免冷启动超时）
+  await c.batch(CREATE_TABLES, 'write');
+  // 兼容旧库的列迁移（逐条，失败说明列已存在）
   for (const sql of MIGRATIONS) {
     try { await c.execute(sql); } catch { /* 列已存在 */ }
   }
-  for (const [name, desc] of DEFAULT_CATEGORIES) {
-    await c.execute({
+  // 批量插入默认分类
+  await c.batch(
+    DEFAULT_CATEGORIES.map(([name, desc]) => ({
       sql: 'INSERT OR IGNORE INTO categories (name, description) VALUES (?, ?)',
       args: [name, desc],
-    });
-  }
+    })),
+    'write'
+  );
 }
 
 let schemaPromise: Promise<void> | null = null;
