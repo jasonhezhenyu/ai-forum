@@ -9,6 +9,9 @@ let client: ReturnType<typeof createClient> | null = null;
 
 function getClient() {
   if (!client) {
+    if (!tursoUrl) {
+      throw new Error('缺少环境变量 TURSO_DATABASE_URL：请在 Vercel 的 Project Settings → Environment Variables 中配置 TURSO_DATABASE_URL 和 TURSO_AUTH_TOKEN');
+    }
     client = createClient({ url: tursoUrl, authToken: tursoToken });
   }
   return client;
