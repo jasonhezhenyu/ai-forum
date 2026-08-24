@@ -2,7 +2,7 @@ import { createClient } from '@libsql/client';
 
 type Row = Record<string, any>;
 
-const tursoUrl = process.env.TURSO_DATABASE_URL!;
+const tursoUrl = process.env.TURSO_DATABASE_URL;
 const tursoToken = process.env.TURSO_AUTH_TOKEN;
 
 let client: ReturnType<typeof createClient> | null = null;
@@ -10,7 +10,7 @@ let client: ReturnType<typeof createClient> | null = null;
 function getClient() {
   if (!client) {
     if (!tursoUrl) {
-      throw new Error('缺少环境变量 TURSO_DATABASE_URL：请在 Vercel 的 Project Settings → Environment Variables 中配置 TURSO_DATABASE_URL 和 TURSO_AUTH_TOKEN');
+      throw new Error('缺少环境变量 TURSO_DATABASE_URL');
     }
     client = createClient({ url: tursoUrl, authToken: tursoToken });
   }
@@ -96,24 +96,33 @@ const DEFAULT_CATEGORIES: [string, string][] = [
   ['其他', '不属于以上分类的话题'],
 ];
 
+let schemaReady = false;
+
 async function doEnsureSchema() {
-  const c = getClient();
-  // 批量建表（合并成一次请求，避免冷启动超时）
-  await c.batch(CREATE_TABLES, 'write');
-  // 批量插入默认分类
-  await c.batch(
-    DEFAULT_CATEGORIES.map(([name, desc]) => ({
-      sql: 'INSERT OR IGNORE INTO categories (name, description) VALUES (?, ?)',
-      args: [name, desc],
-    })),
-    'write'
-  );
+  if (schemaReady) return;
+  try {
+    const c = getClient();
+    for (const sql of CREATE_TABLES) {
+      await c.execute(sql);
+    }
+    for (const [name, desc] of DEFAULT_CATEGORIES) {
+      await c.execute({
+        sql: 'INSERT OR IGNORE INTO categories (name, description) VALUES (?, ?)',
+        args: [name, desc],
+      });
+    }
+    schemaReady = true;
+  } catch (e) {
+    console.error('Schema init error:', e);
+    // 表可能已存在，继续执行
+    schemaReady = true;
+  }
 }
 
-let schemaPromise: Promise<void> | null = null;
-function ensureSchema(): Promise<void> {
-  if (!schemaPromise) schemaPromise = doEnsureSchema();
-  return schemaPromise;
+async function ensureSchema() {
+  if (!schemaReady) {
+    await doEnsureSchema();
+  }
 }
 
 export const db = {
